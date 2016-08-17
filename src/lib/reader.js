@@ -80,6 +80,10 @@ class Reader {
    */
   peekUInt (length) {
     if (length === 0) return 0
+    if (length < 0) {
+      throw new Error('Tried to read integer with negative length (provided: ' +
+        length + ')')
+    }
     if (length > Reader.MAX_INT_BYTES) {
       throw new Error('Tried to read too large integer (requested: ' +
         length + ', max: ' + Reader.MAX_INT_BYTES + ')')

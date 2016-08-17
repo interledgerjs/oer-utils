@@ -225,6 +225,14 @@ describe('Reader', function () {
         reader.peekUInt(7)
       }, 'Tried to read too large integer (requested: 7, max: 6)')
     })
+
+    it('when trying to read a negative length integer, should throw', function () {
+      const reader = Reader.from(new Buffer('01020304050607', 'hex'))
+
+      assert.throws(() => {
+        reader.peekUInt(-1)
+      }, 'Tried to read integer with negative length (provided: -1)')
+    })
   })
 
   describe('skipUInt', function () {

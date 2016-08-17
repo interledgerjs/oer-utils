@@ -608,6 +608,38 @@ describe('Reader', function () {
         reader.readLengthPrefix()
       }, 'Tried to read too large integer (requested: 7, max: 6)')
     })
+
+    it('should throw when length prefix is 0x80 (non-canonical)', function () {
+      const reader = Reader.from(new Buffer('80', 'hex'))
+
+      assert.throws(() => {
+        reader.readLengthPrefix()
+      }, 'Length prefix encoding is not canonical: 0 encoded in 0 bytes')
+    })
+
+    it('should throw when length prefix is 0x8100 (non-canonical)', function () {
+      const reader = Reader.from(new Buffer('8100', 'hex'))
+
+      assert.throws(() => {
+        reader.readLengthPrefix()
+      }, 'Length prefix encoding is not canonical: 0 encoded in 1 bytes')
+    })
+
+    it('should throw when length prefix is 0x8101 (non-canonical)', function () {
+      const reader = Reader.from(new Buffer('810100', 'hex'))
+
+      assert.throws(() => {
+        reader.readLengthPrefix()
+      }, 'Length prefix encoding is not canonical: 1 encoded in 1 bytes')
+    })
+
+    it('should throw when length prefix is 0x820001 (non-canonical)', function () {
+      const reader = Reader.from(new Buffer('82000100', 'hex'))
+
+      assert.throws(() => {
+        reader.readLengthPrefix()
+      }, 'Length prefix encoding is not canonical: 1 encoded in 2 bytes')
+    })
   })
 
   describe('readVarOctetString', function () {

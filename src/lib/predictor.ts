@@ -1,4 +1,4 @@
-import isInteger = require('core-js/library/fn/number/is-integer')
+import { isInteger } from './util'
 
 /**
  * Writable stream which tracks the amount of data written.

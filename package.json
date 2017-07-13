@@ -45,11 +45,9 @@
   },
   "homepage": "https://github.com/interledgerjs/oer-utils",
   "dependencies": {
-    "core-js": "^2.4.1"
   },
   "devDependencies": {
     "@types/chai": "^3.4.35",
-    "@types/core-js": "^0.9.35",
     "@types/mocha": "^2.2.39",
     "@types/node": "^7.0.5",
     "chai": "^3.5.0",

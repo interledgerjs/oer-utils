@@ -121,7 +121,7 @@ interface Predictor {
 }
 
 // Create writeUInt{8,16,32,64} shortcuts
-;[1, 2, 4, 8].forEach((bytes) => {
+[1, 2, 4, 8].forEach((bytes) => {
   Predictor.prototype['writeUInt' + bytes * 8] = function (value: number) {
     return this.writeUInt(value, bytes)
   }

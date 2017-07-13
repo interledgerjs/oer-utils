@@ -250,7 +250,7 @@ interface Writer {
 }
 
 // Create write(U)Int{8,16,32} shortcuts
-;[1, 2, 4].forEach((bytes) => {
+[1, 2, 4].forEach((bytes) => {
   Writer.prototype['writeUInt' + bytes * 8] = function (value: number) {
     this.writeUInt(value, bytes)
   }

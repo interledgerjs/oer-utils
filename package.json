@@ -45,7 +45,7 @@
   },
   "homepage": "https://github.com/interledgerjs/oer-utils",
   "dependencies": {
-    "bignumber.js": "^7.2.1"
+    "bignumber.js": "^8.0.0"
   },
   "devDependencies": {
     "@types/chai": "^4.1.6",

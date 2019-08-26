@@ -31,14 +31,6 @@ jobs:
             - "node-v1-"
 
       - run:
-          name: Install Greenkeeper-Lockfile
-          command: npm install -g greenkeeper-lockfile
-
-      - run:
-          name: Update Lockfile (Greenkeeper)
-          command: greenkeeper-lockfile-update
-
-      - run:
           name: Install
           command: npm install
 
@@ -53,10 +45,6 @@ jobs:
       - run:
           name: Upload code coverage
           command: npm run codecov
-
-      - run:
-          name: Upload Lockfile (Greenkeeper)
-          command: greenkeeper-lockfile-upload
 
       - save_cache:
           paths:

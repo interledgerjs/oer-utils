@@ -1,4 +1,4 @@
-import BigNumber from 'bignumber.js'
+import * as Long from 'long'
 
 // How many bytes are safe to decode as a JS number
 // MAX_SAFE_INTEGER = 2^53 - 1
@@ -6,72 +6,107 @@ import BigNumber from 'bignumber.js'
 export const MAX_SAFE_BYTES = 6
 
 const INTEGER_REGEX = /^-?[0-9]+$/
-export function isInteger (value: any) {
-  if (BigNumber.isBigNumber(value)) {
-    return value.isFinite()
-      && value.isInteger()
-  } else if (typeof value === 'number') {
+export function isInteger (value: any): boolean {
+  if (typeof value === 'number') {
     return isFinite(value) && Math.floor(value) === value
   } else if (typeof value === 'string') {
     return !!INTEGER_REGEX.exec(value)
   } else {
-    return false
+    return Long.isLong(value)
   }
 }
 
-export function bufferToBigNumber (buffer: Buffer): BigNumber {
-  return buffer.reduce(
-    (sum, value) => sum.times(256).plus(value),
-    new BigNumber(0)
+// FIXME: long@master's types' `isLong()` function has the `is Long` return type,
+// but it hasn't been published yet.
+export function isLong (obj: any): obj is Long { return Long.isLong(obj) }
+
+export function longFromValue (
+  value: Long | string | number,
+  unsigned: boolean
+): Long {
+  if (typeof value === 'number') {
+    if (unsigned && value < 0) {
+      throw new Error('UInt must be positive')
+    }
+    return Long.fromNumber(value, unsigned)
+  }
+
+  if (isLong(value)) {
+    if (value.unsigned !== unsigned) {
+      if (unsigned) throw new Error('Expected unsigned Long')
+      else throw new Error('Expected signed Long')
+    }
+    return value
+  }
+
+  if (unsigned && value[0] === '-') {
+    throw new Error('UInt must be positive')
+  }
+  return Long.fromString(value, unsigned)
+}
+
+export function bufferToLong (buffer: Buffer, unsigned: boolean): Long {
+  if (buffer.length > 8) {
+    throw new Error(
+      (unsigned ? 'UInt' : 'Int') +
+      ' of length ' + buffer.length + ' is too large'
+    )
+  }
+
+  if (unsigned) {
+    return buffer.reduce(
+      (sum, value) => sum.shiftLeft(8).add(value),
+      Long.UZERO
+    )
+  } else {
+    return buffer.reduce(
+      (sum, value, i) =>
+        sum.multiply(256).add(
+          (i === 0 && 0x80 <= value) ? value - 0x100 : value
+        ),
+      Long.ZERO
+    )
+  }
+}
+
+/**
+ * @param value is unsigned
+ * @param length
+ */
+export function longToBuffer (value: Long, length: number): Buffer {
+  return Buffer.from(
+    value.toBytesBE().slice(8 - length)
   )
 }
 
-export function bigNumberToBuffer (value: BigNumber, length?: number): Buffer {
-  const lengthOfValue = (length !== undefined ? length : Math.ceil(value.toString(2).length / 8))
-  const buffer = Buffer.alloc(lengthOfValue)
-  let big = value
-  for (let i = buffer.length - 1; i >= 0; i--) {
-    buffer.writeUInt8(big.modulo(256).toNumber(), i)
-    big = big.dividedToIntegerBy(256)
+const LONG_VAR_UINT_SIZES: LongSizeRange[] = new Array(8)
+const LONG_VAR_INT_SIZES: LongSizeRange[] = new Array(8)
+
+for (let i = 0; i < 8; i++) {
+  LONG_VAR_UINT_SIZES[i] = {
+    max: Long.MAX_UNSIGNED_VALUE.shiftRightUnsigned(64 - 8 * (i + 1)),
+    bytes: i + 1
   }
-  return buffer
+  LONG_VAR_INT_SIZES[i] = {
+    min: Long.MIN_VALUE.shiftRight(64 - 8 * (i + 1)),
+    max: Long.MAX_VALUE.shiftRight(64 - 8 * (i + 1)),
+    bytes: i + 1
+  }
 }
 
-const BIG_VAR_UINT_SIZES: BigNumberSizeRange[] = [
-  { max: new BigNumber(0xff), bytes: 1 },
-  { max: new BigNumber(0xffff), bytes: 2 },
-  { max: new BigNumber(0xffffff), bytes: 3 },
-  { max: new BigNumber(0xffffffff), bytes: 4 },
-  { max: new BigNumber(0xffffffffff), bytes: 5 },
-  { max: new BigNumber(0xffffffffffff), bytes: 6 },
-  { max: new BigNumber('ffffffffffffff', 16), bytes: 7 },
-  { max: new BigNumber('ffffffffffffffff', 16), bytes: 8 }
-]
-
-const BIG_VAR_INT_SIZES: BigNumberSizeRange[] = [
-  { min: new BigNumber(-0x80), max: new BigNumber(0x7f), bytes: 1 },
-  { min: new BigNumber(-0x8000), max: new BigNumber(0x7fff), bytes: 2 },
-  { min: new BigNumber(-0x800000), max: new BigNumber(0x7fffff), bytes: 3 },
-  { min: new BigNumber(-0x80000000), max: new BigNumber(0x7fffffff), bytes: 4 },
-  { min: new BigNumber(-0x8000000000), max: new BigNumber(0x7fffffffff), bytes: 5 },
-  { min: new BigNumber(-0x800000000000), max: new BigNumber(0x7fffffffffff), bytes: 6 },
-  { min: new BigNumber('-80000000000000', 16), max: new BigNumber('7fffffffffffff', 16), bytes: 7 },
-  { min: new BigNumber('-8000000000000000', 16), max: new BigNumber('7fffffffffffffff', 16), bytes: 8 }
-]
-
-const VAR_UINT_SIZES: NumberSizeRange[] = makeNumberRanges(BIG_VAR_UINT_SIZES)
-const VAR_INT_SIZES: NumberSizeRange[] = makeNumberRanges(BIG_VAR_INT_SIZES)
+const VAR_UINT_SIZES: NumberSizeRange[] = makeNumberRanges(LONG_VAR_UINT_SIZES)
+const VAR_INT_SIZES: NumberSizeRange[] = makeNumberRanges(LONG_VAR_INT_SIZES)
 
 // Returns the minimum number of bytes required to encode the value.
-export function getBigUIntBufferSize (value: BigNumber): number {
-  for (let i = 0; i < BIG_VAR_UINT_SIZES.length; i++) {
-    const item = BIG_VAR_UINT_SIZES[i]
-    if (value.isLessThanOrEqualTo(item.max)) {
-      // Fast path: no extra work converting a BigNumber to a String.
+export function getLongUIntBufferSize (value: Long): number {
+  for (let i = 0; i < LONG_VAR_UINT_SIZES.length; i++) {
+    const item = LONG_VAR_UINT_SIZES[i]
+    if (value.lessThanOrEqual(item.max)) {
+      // Fast path: no extra work converting a Long to a String.
       return item.bytes
     }
   }
-  return computeBigNumberBufferSize(value)
+  throw new Error('unreachable')
 }
 
 export function getUIntBufferSize (value: number): number {
@@ -79,22 +114,22 @@ export function getUIntBufferSize (value: number): number {
     const item = VAR_UINT_SIZES[i]
     if (value <= item.max) return item.bytes
   }
-  return computeBigNumberBufferSize(new BigNumber(value))
+  return computeLongBufferSize(Long.fromNumber(value, true))
 }
 
 // Returns the minimum number of bytes required to encode the value.
-export function getBigIntBufferSize (value: BigNumber): number {
-  for (let i = 0; i < VAR_INT_SIZES.length; i++) {
-    const item = VAR_INT_SIZES[i]
+export function getLongIntBufferSize (value: Long): number {
+  for (let i = 0; i < LONG_VAR_INT_SIZES.length; i++) {
+    const item = LONG_VAR_INT_SIZES[i]
     if (
-      value.isGreaterThanOrEqualTo(item.min!) &&
-      value.isLessThanOrEqualTo(item.max)
+      value.greaterThanOrEqual(item.min!) &&
+      value.lessThanOrEqual(item.max)
     ) {
-      // Fast path: no extra work converting a BigNumber to a String.
+      // Fast path: no extra work converting a Long to a String.
       return item.bytes
     }
   }
-  return computeBigNumberBufferSize(value)
+  throw new Error('unreachable')
 }
 
 export function getIntBufferSize (value: number): number {
@@ -102,17 +137,17 @@ export function getIntBufferSize (value: number): number {
     const item = VAR_INT_SIZES[i]
     if (value >= item.min! && value <= item.max) return item.bytes
   }
-  return computeBigNumberBufferSize(new BigNumber(value))
+  return computeLongBufferSize(Long.fromNumber(value, false))
 }
 
-function computeBigNumberBufferSize (value: BigNumber): number {
+function computeLongBufferSize (value: Long): number {
   return Math.ceil(value.toString(16).length / 2)
 }
 
-interface BigNumberSizeRange {
+interface LongSizeRange {
   // UInt ranges don't use min.
-  min?: BigNumber,
-  max: BigNumber,
+  min?: Long,
+  max: Long,
   bytes: number
 }
 
@@ -123,7 +158,7 @@ interface NumberSizeRange {
   bytes: number
 }
 
-function makeNumberRanges (ranges: BigNumberSizeRange[]): NumberSizeRange[] {
+function makeNumberRanges (ranges: LongSizeRange[]): NumberSizeRange[] {
   return ranges
     .filter((range) => range.bytes <= MAX_SAFE_BYTES)
     .map((range) => ({

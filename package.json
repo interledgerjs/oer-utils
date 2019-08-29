@@ -45,11 +45,11 @@
   },
   "homepage": "https://github.com/interledgerjs/oer-utils",
   "dependencies": {
+    "@types/long": "^4.0.0",
     "long": "^4.0.0"
   },
   "devDependencies": {
     "@types/chai": "^4.1.6",
-    "@types/long": "^4.0.0",
     "@types/mocha": "^5.2.5",
     "@types/node": "^10.12.0",
     "chai": "^4.2.0",
